@@ -17,6 +17,7 @@ name="machinic_tangle",
                       "https://github.com/galencm/machinic-lings/tarball/master#egg=lings-0.1"],
     entry_points = {'console_scripts': ['ma-ui-tangle = machinic_tangle.tangle_ui:main',
                                         'tangle-ui = machinic_tangle.tangle_ui:main',
+                                        'tangle-associative = machinic_tangle.associative:main'
                                        ],
                             },
 )

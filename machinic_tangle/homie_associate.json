@@ -1,0 +1,15 @@
+    {
+      "name": "{{device_name}}",
+      "device_id": "{{device_id}}",
+      "wifi": {
+        "ssid": "{{ssid}}",
+        "password": "{{ssid_pass}}"
+      },
+      "mqtt": {
+        "host": "{{mqtt_host}}",
+        "port": {{mqtt_port}}
+        },
+        "ota": {
+        "enabled": true
+        },
+    }
