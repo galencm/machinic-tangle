@@ -1,0 +1,64 @@
+.- This Source Code Form is subject to the terms of the Mozilla Public
+.- License, v. 2.0. If a copy of the MPL was not distributed with this
+.- file, You can obtain one at http://mozilla.org/MPL/2.0/.
+.-
+.- Copyright (c) 2018, Galen Curwen-McAdams
+
+. directory.create("./$(peripheral.name)_$(peripheral.type)")
+. directory.create("./$(peripheral.name)_$(peripheral.type)/lib")
+. directory.create("./$(peripheral.name)_$(peripheral.type)/src")
+
+.output "./regenerate.sh"
+#!/bin/bash
+# this is generated code
+gsl -script:iot_homie_button.gsl model_button.xml 
+echo "to modify code generation, edit .gsl or .xml files and run regenerate.sh"
+
+.output "./$(peripheral.name)_$(peripheral.type)/platformio.ini"
+; this is generated code
+[env:myboard]
+platform = espressif8266
+board = huzzah
+framework = arduino
+lib_deps = Homie, MqttClient,
+
+.output "./$(peripheral.name)_$(peripheral.type)/src/$(peripheral.type)_$(peripheral.name).cpp"
+#include <Homie.h>
+// this is generated code
+
+AsyncMqttClient& mqttClient = Homie.getMqttClient();
+Bounce  debouncer  = Bounce(); 
+
+const int PIN_BUTTON = 14;
+
+void loopHandler() {
+    if (debouncer.update())
+    {
+    if ( digitalRead ( debouncer.read() ) == LOW ){
+. for peripheral.output
+      Serial.print("$(output.channel:)");
+      Serial.print("$(output.value)");
+      mqttClient.publish("$(output.channel:)", 1, true, "$(output.value)");
+. endfor
+    }
+    }
+}
+
+void setup() {
+  Serial.begin(115200);
+  Homie.setResetTrigger(16, LOW, 2000); // reset pin, use before Homie.setup()
+  pinMode(PIN_BUTTON, INPUT_PULLUP);
+
+  debouncer.attach( PIN_BUTTON );
+  debouncer.interval(30);
+    
+  Homie_setFirmware("bare-minimum", "1.0.0");
+  Homie.setLoopFunction(loopHandler);
+  Homie.setup();
+}
+
+void loop() {
+  Homie.loop();
+}
+
+
