@@ -12,6 +12,7 @@ import argparse
 import fnmatch
 import netifaces
 import jinja2
+import json
 
 # modified from associative.py in machinic-core
 
@@ -97,8 +98,9 @@ def send(iface, payload, post_send_delay=5):
     #logger.info("connected to {} with ip {}".format(essid,iface_ip))
     print("ap ip assumed to be {}".format(ap_ip))
     #url is homie specific and should be templated
-    response = subprocess.check_output(['curl','-X','PUT','http://{}/config'.format(ap_ip),'--header','"Content-Type: application/json"','-d','{}'.format(json.dumps(json.loads(payload)))])
-    print(response.decode())
+    print("payload: ", payload)
+    response = subprocess.check_output(['curl','-X','PUT','http://{}/config'.format(ap_ip),'--header','Content-Type:', 'application/json','-d','{}'.format(json.dumps(json.loads(payload)))])
+    print("response: ", response.decode())
     #b'{"success":false,"error":"Invalid or too big JSON"}'
     #{"success":true}
     print("diassociating {}".format(iface))
