@@ -44,36 +44,51 @@ def scan(scan_iface):
         found_essids.extend(found)
     return found_essids
 
-def associate(iface, essid, payload, delay=5):
-    # This section is problematic, perhaps due to interactions
-    # with networkmanager can work or fail depending on state of
-    # system. 
-
+def associate(iface, essid, payload, delay=5, retries=None):
     # Send on association
 
-    # print("diassociating {} before associating".format(iface))
-    # subprocess.check_output(['sudo','iwconfig',iface,'ap','00:00:00:00:00:00'])
-    print("connecting to {}".format(essid))
+    # currently nmcli works much better than iwconfig/dhclient
+    # however it is not as portable as iwconfig/dhclient, so
+    # worth improving more general / portable approaches
+    #
+    # see commented code block at below
+
     try:
-        print(subprocess.check_output(['sudo', 'iwconfig', iface, 'essid', '{}'.format(essid)]))
-        print("sleeping for {}} seconds".format(delay))
-        time.sleep(delay)
-        # #-r prevents 'dhclient() is already running - exiting.'
-        # #but releases all other leases too..
-        #print(subprocess.check_output(['sudo','dhclient','-1',iface,"-r","-v"]))
-        try: 
-            print(subprocess.check_output(['sudo', 'dhclient', '-1', iface, '-v']))
-        except:
-            print("no dhcp lease retrying...")
-            associate(iface, essid, payload)        
-        try:
-            iface_ip = netifaces.ifaddresses(iface)[2][0]['addr'] 
-        except KeyError:
-            print("no ip received retrying...")
-            associate(iface, essid, payload)        
-    except:
-        # send payload
+        print(subprocess.check_output("nmcli dev wifi connect {}".format(essid).split(" ")))
         send(iface, payload)
+    except Exception as ex:
+        print(ex)
+        # early code would continuously retry without a retries kwarg
+        # if an ssid is not found it led to endless loop of calling associate
+        if retries is not None and retries > 0:
+            print("retry: {}".format(retries))
+            retries -= 1
+            time.sleep(delay)
+            associate(iface, essid, payload, retries=retries)
+
+    # # print("diassociating {} before associating".format(iface))
+    # # subprocess.check_output(['sudo','iwconfig',iface,'ap','00:00:00:00:00:00'])
+    # print("connecting to {}".format(essid))
+    # try:
+    #     print(subprocess.check_output(['sudo', 'iwconfig', iface, 'essid', '{}'.format(essid)]))
+    #     print("sleeping for {} seconds".format(delay))
+    #     time.sleep(delay)
+    #     # -r prevents 'dhclient() is already running - exiting.'
+    #     # but releases all other leases too..
+    #     try:
+    #         print(subprocess.check_output(['sudo', 'dhclient', '-1', iface, '-v', '-r']))
+    #     except:
+    #         print("no dhcp lease retrying...")
+    #         associate(iface, essid, payload)
+    #     try:
+    #         iface_ip = netifaces.ifaddresses(iface)[2][0]['addr']
+    #     except KeyError:
+    #         print("no ip received retrying...")
+    #         print(netifaces.ifaddresses(iface))
+    #         associate(iface, essid, payload)
+    # except:
+    #     # send payload
+    #     send(iface, payload)
 
 def send(iface, payload, post_send_delay=5):
     iface_ip = netifaces.ifaddresses(iface)[2][0]['addr'] 
