@@ -164,8 +164,11 @@ class WirelessDetails(BoxLayout):
         self.add_widget(Label(text="scanned ssids:", height=30, size_hint_y=None))
         self.add_widget(self.ssid_map)
         self.connected_clients = TextInput()
-        self.add_widget(Label(text="clients connected to AP", height=30, size_hint_y=None))
+        self.connected_to_ap = TextInput()
+        self.add_widget(Label(text="ap", height=30, size_hint_y=None))
         self.add_widget(self.connected_clients)
+        self.add_widget(Label(text="ap connections", height=30, size_hint_y=None))
+        self.add_widget(self.connected_to_ap)
         self.add_widget(Label(text="template:", height=30, size_hint_y=None))
         self.add_widget(self.template_input)
         self.load_template(self.associate_template_file)
@@ -199,18 +202,23 @@ class WirelessDetails(BoxLayout):
         # since if previous process was not terminaled
         # create_ap will increment virtual interfaces
         # on the same wifi card ie ap0 ap1
-        running_aps = subprocess.check_output(["create_ap", "--list-running"]).decode()
-        pids = []
-        for line in running_aps.split("\n"):
-            for word in line.split(" "):
-                try:
-                    pids.append(int(word))
-                except:
-                    pass
+        try:
+            running_aps = subprocess.check_output(["create_ap", "--list-running"]).decode()
+        except:
+            running_aps = ""
 
-        # sudo causes password prompt in terminal
-        for pid in pids:
-            print(subprocess.check_output(["sudo", "create_ap", "--stop", str(pid)]).decode())
+        if running_aps:
+            pids = []
+            for line in running_aps.split("\n"):
+                for word in line.split(" "):
+                    try:
+                        pids.append(int(word))
+                    except:
+                        pass
+
+            # sudo causes password prompt in terminal
+            for pid in pids:
+                print(subprocess.check_output(["sudo", "create_ap", "--stop", str(pid)]).decode())
 
         self.app.run_process("sudo", "create_ap -n {ap_wifi_iface} {ap_ssid} {ap_pass}".format_map(self.config_vars).split())
 
@@ -242,6 +250,14 @@ class WirelessDetails(BoxLayout):
             except:
                 # not a pid
                 pass
+
+        threading.Thread(target=self.enumerate_connected).start()
+
+    def enumerate_connected(self):
+        try:
+            self.connected_to_ap.text = subprocess.check_output("nmap -sP {ap_ip}/24".format(ap_ip=self.ap_ip).split()).decode()
+        except Exception as ex:
+            print(ex)
 
 class TangleApp(App):
     def __init__(self, *args, **kwargs):
