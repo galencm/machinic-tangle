@@ -79,7 +79,7 @@ class WirelessDetails(BoxLayout):
     def __init__(self, app=None, *args, **kwargs):
         self.associate_patterns = ["homie-*"]
         self.associate_template = ""
-        self.associate_template_file = "on_associate.json"
+        self.associate_template_file = "homie_associate.json"
         super(WirelessDetails, self).__init__()
         self.discovered_ssids = SsidMap()
         self.template_input = TextInput()
