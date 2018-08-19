@@ -19,6 +19,7 @@ pip3 install --editable ./ --user --process-dependency-links
 ## Usage
 
 ```
+tangle-ui  --size=1500x800 -- --db-port 6379 --db-host 127.0.0.1
 ```
 
 ## Contributing
