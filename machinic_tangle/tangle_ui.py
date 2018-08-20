@@ -10,6 +10,7 @@ import attr
 import redis
 import subprocess
 import json
+import time
 import pathlib
 import fnmatch
 import threading
@@ -112,6 +113,8 @@ class BrokerService(BoxLayout):
         # start mosquitto with config file
         # config file is needed to specify listener port
         self.create_broker()
+        # add slight delay before connecting client
+        time.sleep(0.5)
         # connect a client
         self.create_client()
         super(BrokerService, self).__init__()
