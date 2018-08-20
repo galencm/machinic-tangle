@@ -1,0 +1,6 @@
+include LICENSE.txt
+
+include machinic_tangle/iot_homie_button.gsl
+include machinic_tangle/model_button.xml
+include machinic_tangle/mosquitto.conf
+include machinic_tangle/homie_associate.json
