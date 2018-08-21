@@ -1,0 +1,53 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// 
+// Copyright (c) 2018, Galen Curwen-McAdams
+
+Path:
+source=Channel munge?=MessageMunge send_as=SendSymbol? destination=ChannelName
+;
+
+Channel:
+ChannelName | ChannelExpression
+;
+
+ChannelName:
+/(\w+)/ | /\/(\w+)/ | HashKey | ShellCall
+;
+
+ShellCall:
+BlockingCall | NonblockingCall
+;
+
+BlockingCall:
+'$$(' call=Munge args*=Munge ')'
+;
+
+NonblockingCall:
+'$(' call=Munge args*=Munge ')'
+;
+
+HashKey:
+name=STRING '::' field=STRING
+;
+
+ChannelExpression:
+'(' channel=ChannelName operator=Operator value=INT ')'
+;
+
+Operator:
+'>' | '<' | '>=' | '<=' |'=='
+;
+
+SendSymbol:
+'->'|'>>'|'--'
+;
+
+MessageMunge:
+'[' template=STRING ']'
+;
+
+Munge:
+/\$(\w+)/ | /\/(\w+)/ | /([^\s]+ )/ | /(\w+)/
+;

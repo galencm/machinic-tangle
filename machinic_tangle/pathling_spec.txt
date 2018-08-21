@@ -1,0 +1,47 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# Copyright (c) 2018, Galen Curwen-McAdams
+
+# use $channel $message for both redis/mqtt
+# for now assume from mqtt to redis
+
+# publish contents of /foo on channel bar
+/foo -> bar
+
+# specify string to be published $'s will be substituted
+/foo ["$channel"] -> bar
+/foo ["$channel:$message"] -> bar
+
+# publish db channel
+/foo ["$channel"] -> bar
+
+# publish mqtt->mqtt channel
+/foo ["$channel"] -> /bar
+
+# publish db->mqtt channel
+foo ["$channel"] -> /bar
+
+# if value of foo > 1 publish on bar
+(/foo > 1) -> bar
+(/foo > 1) ["$channel"] -> bar
+(/foo > 1) ["baz"] -> bar
+
+# set key bar with value
+(/foo > 1) >> bar
+
+# bar::bar set hash bar field bar with value
+# allow string substitution
+(/foo > 1) >> "bar:bar"::"bar"
+(/foo > 1) ["$channel"] >> "bar"::"bar"
+
+# shell calls
+
+# nonblocking
+/foo -- $(create-glworb $contents)
+
+# blocking
+/foo -- $$(create-glworb foo $contents)
+
+
