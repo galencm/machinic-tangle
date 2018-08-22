@@ -5,7 +5,7 @@
 // Copyright (c) 2018, Galen Curwen-McAdams
 
 Path:
-source=Channel munge?=MessageMunge send_as=SendSymbol? destination=ChannelName
+source=Channel munge=MessageMunge? send_as=SendSymbol? destination=ChannelName
 ;
 
 Channel:
