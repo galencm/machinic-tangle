@@ -118,7 +118,7 @@ class BrokerService(BoxLayout):
         # connect a client
         self.create_client()
         super(BrokerService, self).__init__()
-        d = bridge.Bridge(self.app.db_host, self.app.db_port, self.config_vars["mqtt_port"], self.config_vars["mqtt_host"])
+        b = bridge.Bridge(self.app.db_host, self.app.db_port, self.config_vars["mqtt_host"], self.config_vars["mqtt_port"])
 
     def create_broker(self):
         # stop any existing if updating
