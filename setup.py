@@ -17,7 +17,8 @@ name="machinic_tangle",
     entry_points = {'console_scripts': ['ma-ui-tangle = machinic_tangle.tangle_ui:main',
                                         'tangle-ui = machinic_tangle.tangle_ui:main',
                                         'tangle-associative = machinic_tangle.associative:main',
-                                        'tangle-things = machinic_tangle.tangle_things:main'
+                                        'tangle-things = machinic_tangle.tangle_things:main',
+                                        'tangle-bridge = machinic_tangle.bridge_cli:main'
                                        ],
                             },
 )
