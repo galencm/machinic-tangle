@@ -13,10 +13,14 @@ import json
 import time
 import pathlib
 import fnmatch
+import hashlib
 import threading
 import jinja2
 import shutil
 import paho.mqtt.client as mosquitto
+import paho.mqtt.publish
+from textx.metamodel import metamodel_from_file
+import netifaces
 from ma_cli import data_models
 from machinic_tangle import associative
 from machinic_tangle import bridge
@@ -30,6 +34,7 @@ from kivy.uix.button import Button
 from kivy.uix.checkbox import CheckBox
 from kivy.properties import BooleanProperty
 from kivy.clock import Clock
+from kivy.uix.dropdown import DropDown
 
 r_ip, r_port = data_models.service_connection()
 binary_r = redis.StrictRedis(host=r_ip, port=r_port)
@@ -37,6 +42,67 @@ redis_conn = redis.StrictRedis(host=r_ip, port=r_port, decode_responses=True)
 
 # write and store mqtt.conf in /tmp
 # need ip and bind
+
+class DropDownInput(TextInput):
+
+    def __init__(self, preload=None, preload_attr=None, preload_clean=True, **kwargs):
+        self.multiline = False
+        self.drop_down = DropDown()
+        self.drop_down.bind(on_select=self.on_select)
+        self.bind(on_text_validate=self.add_text)
+        self.preload = preload
+        self.preload_attr = preload_attr
+        self.preload_clean = preload_clean
+        self.not_preloaded = set()
+        super(DropDownInput, self).__init__(**kwargs)
+        self.add_widget(self.drop_down)
+
+    def add_text(self,*args):
+        if args[0].text not in [btn.text for btn in self.drop_down.children[0].children if hasattr(btn ,'text')]:
+            btn = Button(text=args[0].text, size_hint_y=None, height=44)
+            self.drop_down.add_widget(btn)
+            btn.bind(on_release=lambda btn: self.drop_down.select(btn.text))
+            if not 'preload' in args:
+                self.not_preloaded.add(btn)
+
+    def on_select(self, *args):
+        self.text = args[1]
+        if args[1] not in [btn.text for btn in self.drop_down.children[0].children if hasattr(btn ,'text')]:
+            self.drop_down.append(Button(text=args[1]))
+            self.not_preloaded.add(btn)
+        # call on_text_validate after selection
+        # to avoid having to select textinput and press enter
+        self.dispatch('on_text_validate')
+
+    def on_touch_down(self, touch):
+        preloaded = set()
+        if self.preload:
+            for thing in self.preload:
+                if self.preload_attr:
+                    # use operator to allow dot access of attributes
+                    thing_string = str(operator.attrgetter(self.preload_attr)(thing))
+                else:
+                    thing_string = str(thing)
+                self.add_text(Button(text=thing_string),'preload')
+                preloaded.add(thing_string)
+
+        # preload_clean removes entries that
+        # are not in the preload source anymore
+        if self.preload_clean is True:
+            added_through_widget = [btn.text for btn in self.not_preloaded if hasattr(btn ,'text')]
+            for btn in self.drop_down.children[0].children:
+                try:
+                    if btn.text not in preloaded and btn.text not in added_through_widget:
+                        self.drop_down.remove_widget(btn)
+                except Exception as ex:
+                    pass
+
+        return super(DropDownInput, self).on_touch_down(touch)
+
+    def on_touch_up(self, touch):
+        if touch.grab_current == self:
+            self.drop_down.open(self)
+        return super(DropDownInput, self).on_touch_up(touch)
 
 @attr.s
 class Service(object):
@@ -154,6 +220,103 @@ class BrokerService(BoxLayout):
             with config.open("w+") as f:
                 f.write(template)
 
+class AccessPointConfig(BoxLayout):
+    def __init__(self, app=None, *args, **kwargs):
+        self.orientation = "vertical"
+        self.interfaces = []
+        self.app = app
+        super(AccessPointConfig, self).__init__()
+        self.ssid_input = TextInput(height=30, size_hint_y=None)
+        self.pass_input = TextInput(height=30, size_hint_y=None)
+
+        # netifaces will detect even if interface is deactivated
+        wireless_interfaces = [iface for iface in netifaces.interfaces() if iface.startswith("w")]
+        self.scan_ifaces = DropDownInput(preload=wireless_interfaces, height=30, size_hint_y=None)
+        self.scan_ifaces.bind(on_text_validate=lambda widget: self.app.wireless_details.update_scan(widget.text))
+        self.ap_ifaces = DropDownInput(preload=wireless_interfaces, height=30, size_hint_y=None)
+        self.ap_ifaces.bind(on_text_validate=lambda widget: self.app.wireless_details.update_ap(widget.text, self.ssid_input.text, self.pass_input.text))
+
+        # set default text
+        self.scan_ifaces.text ="wls1"
+        self.ap_ifaces.text ="wlp0s26f7u1"
+        self.ssid_input.text = "foo"
+        self.pass_input.text = "bar_bar_"
+
+        for label, widget in (("ssid", self.ssid_input),
+                              ("password", self.pass_input),
+                              ("scan interface", self.scan_ifaces),
+                              ("ap interface", self.ap_ifaces)):
+            row = BoxLayout(height=30, size_hint_y=None)
+            row.add_widget(Label(text=label))
+            row.add_widget(widget)
+            self.add_widget(row)
+
+class PathlingWidget(BoxLayout):
+    def __init__(self, app=None, *args, **kwargs):
+        self.orientation = "vertical"
+        self.app = app
+        self.routes_key = "machinic:routes:{}:{}".format(app.db_host, app.db_port)
+        super(PathlingWidget, self).__init__()
+        self.route_input = TextInput()
+        self.route_add = Button(text="update routes", height=30, size_hint_y=None)
+        self.route_add.bind(on_press=lambda widget: self.update_routes())
+        self.add_widget(self.route_input)
+        self.add_widget(self.route_add)
+
+        test_row = BoxLayout(height=30, size_hint_y=None, orientation="horizontal")
+        self.add_widget(Label(text="broker test [channel | message]", height=30, size_hint_y=None))
+        for widget in ("test_channel", "test_message"):
+            input_widget = TextInput(multiline=False)
+            setattr(self, widget, input_widget)
+            test_row.add_widget(input_widget)
+        self.test_channel.bind(on_text_validate=lambda widget: self.channel_test(self.test_channel.text, self.test_message.text))
+        self.test_message.bind(on_text_validate=lambda widget: self.channel_test(self.test_channel.text, self.test_message.text))
+        self.add_widget(test_row)
+        self.pathling_model_file = pathlib.Path(pathlib.PurePath(pathlib.Path(__file__).parents[0], "pathling.tx"))
+        self.pathling_metamodel = metamodel_from_file(self.pathling_model_file)
+        self.fetch_routes()
+
+    def channel_test(self, channel, message):
+        paho.mqtt.publish.single(channel, message, hostname="127.0.0.1", port=1883)
+
+    def update_routes(self):
+        updated = []
+        for route in self.route_input.text.split("\n"):
+            # print(route)
+            if route.startswith("-"):
+                # flagged to delete
+                self.remove_route(route)
+            elif not route.startswith("#"):
+                try:
+                    # validate
+                    path = self.pathling_metamodel.model_from_str(route)
+                    self.add_route(route)
+                except Exception as ex:
+                    print(ex)
+                    # comment out invalid routes
+                    # and add error as comment beneath
+                    route = "#" + route
+                    route+="\n#{}".format(ex)
+                updated.append(route)
+        self.route_input.text = "\n".join(updated)
+        self.fetch_routes
+
+    def remove_route(self, route):
+        if route.startswith("-"):
+            route = route.split("-", 1)[-1].strip()
+        route_hash = hashlib.sha224(route.encode()).hexdigest()
+        redis_conn.hdel(self.routes_key, route_hash)
+
+    def add_route(self, route):
+        route_hash = hashlib.sha224(route.encode()).hexdigest()
+        redis_conn.hmset(self.routes_key, {route_hash : route})
+
+    def fetch_routes(self):
+        db_routes = redis_conn.hgetall(self.routes_key)
+        for _, route in db_routes.items():
+            if not route in self.route_input.text.split("\n"):
+                self.route_input.text += route + "\n"
+
 class WirelessDetails(BoxLayout):
     def __init__(self, app=None, *args, **kwargs):
         self.orientation = "vertical"
@@ -176,11 +339,7 @@ class WirelessDetails(BoxLayout):
         self.add_widget(self.template_input)
         self.load_template(self.associate_template_file)
         self.scan_iface = "wls1"
-        self.scan_iface_input = TextInput(text=self.scan_iface, multiline=False, height=30, size_hint_y=None)
-        self.scan_iface_input.bind(on_text_validate=lambda widget: setattr(self, "scan_iface", widget.text))
         self.config = BoxLayout(orientation="vertical")
-        self.add_widget(Label(text="scan interface:", height=30, size_hint_y=None))
-        self.add_widget(self.scan_iface_input)
         # scan for aps in a thread so it does not block ui
         self.scheduled_scan = Clock.schedule_interval(lambda foo: threading.Thread(target=self.scan_aps).start(), int(10))
         # create_ap process
@@ -193,9 +352,17 @@ class WirelessDetails(BoxLayout):
         self.create_ap()
         self.scheduled_check = Clock.schedule_interval(lambda foo: self.check_connected(), int(5))
 
+    def update_scan(self, iface):
+        self.scan_iface = iface
+
+    def update_ap(self, iface, ssid, ssid_pass):
+        self.config_vars["ap_wifi_iface"] = iface
+        self.config_vars["ap_ssid"] = ssid
+        self.config_vars["ap_pass"] = ssid_pass
+        self.create_ap()
+
     @property
     def ap_ip(self):
-        import netifaces
         iface = self.config_vars["ap_virtual_iface"]
         iface_ip = netifaces.ifaddresses(iface)[2][0]['addr']
         return iface_ip
@@ -267,7 +434,6 @@ class TangleApp(App):
         # store kwargs to passthrough
         self.kwargs = kwargs
         self.processes = {}
-        self.services = []
         if kwargs["db_host"] and kwargs["db_port"]:
             global binary_r
             global redis_conn
@@ -287,11 +453,12 @@ class TangleApp(App):
         self.db_event_subscription.psubscribe(**{'*': self.handle_db_events})
         # add thread to pubsub object to stop() on exit
         self.db_event_subscription.thread = self.db_event_subscription.run_in_thread(sleep_time=0.001)
-        service_container = BoxLayout(orientation="vertical")
-        for service in self.services:
-            service_container.add_widget(ServiceItem(service, app=self))
-        root.add_widget(service_container)
-        root.add_widget(WirelessDetails(app=self))
+        input_container = BoxLayout(orientation="vertical")
+        input_container.add_widget(PathlingWidget(app=self))
+        input_container.add_widget(AccessPointConfig(app=self))
+        root.add_widget(input_container)
+        self.wireless_details = WirelessDetails(app=self)
+        root.add_widget(self.wireless_details)
         view_container = BoxLayout(orientation="vertical")
         root.add_widget(view_container)
         self.views = {}
