@@ -166,7 +166,7 @@ class SsidMap(BoxLayout):
             self.ssid_list.text += "{}\n".format(ssid)
 
 class BrokerService(BoxLayout):
-    def __init__(self, app=None, *args, **kwargs):
+    def __init__(self, app=None, allow_shell_calls=False, *args, **kwargs):
         self.config_vars = {}
         self.config_vars["mqtt_port"] = 1883
         self.config_vars["mqtt_host"] = "127.0.0.1"
@@ -184,7 +184,7 @@ class BrokerService(BoxLayout):
         # connect a client
         self.create_client()
         super(BrokerService, self).__init__()
-        b = bridge.Bridge(self.app.db_host, self.app.db_port, self.config_vars["mqtt_host"], self.config_vars["mqtt_port"])
+        b = bridge.Bridge(self.app.db_host, self.app.db_port, self.config_vars["mqtt_host"], self.config_vars["mqtt_port"], allow_shell_calls=allow_shell_calls)
 
     def create_broker(self):
         # stop any existing if updating
@@ -434,6 +434,9 @@ class TangleApp(App):
         # store kwargs to passthrough
         self.kwargs = kwargs
         self.processes = {}
+        self.allow_shell_calls = False
+        if kwargs["allow_shell_calls"]:
+            self.allow_shell_calls = True
         if kwargs["db_host"] and kwargs["db_port"]:
             global binary_r
             global redis_conn
@@ -467,8 +470,7 @@ class TangleApp(App):
         for view_name, view in self.views.items():
             view_container.add_widget(Label(text=view_name, height=30, size_hint_y=None))
             view_container.add_widget(view)
-
-        b = BrokerService(app=self)
+        b = BrokerService(app=self, allow_shell_calls=self.allow_shell_calls)
 
         return root
 
@@ -531,6 +533,7 @@ def main():
     parser.add_argument("--db-key-field",  help="db hash field")
     parser.add_argument("--db-host",  help="db host ip, requires use of --db-port")
     parser.add_argument("--db-port", type=int, help="db port, requires use of --db-host")
+    parser.add_argument("--allow-shell-calls", action="store_true", help="allow shell calls in routing")
     args = parser.parse_args()
 
     if bool(args.db_host) != bool(args.db_port):
