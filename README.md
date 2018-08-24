@@ -18,8 +18,25 @@ pip3 install --editable ./ --user --process-dependency-links
 
 ## Usage
 
+tangle-ui
+
+_overviews of connecting, routing and messaging_
+
 ```
 tangle-ui  --size=1500x800 -- --db-port 6379 --db-host 127.0.0.1
+```
+
+tangle-things
+
+_generate code for things hardware and software_
+
+a button example using gsl, homie and platformio to generate and upload code onto a huzzah esp8266:
+
+```
+tangle-things button --model-type homie --name foo
+cd button_foo/foo_button/
+platformio run
+platformio run -t upload
 ```
 
 ## Contributing
