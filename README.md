@@ -18,7 +18,7 @@ pip3 install --editable ./ --user --process-dependency-links
 
 ## Usage
 
-tangle-ui
+**tangle-ui**
 
 _overviews of connecting, routing and messaging_
 
@@ -26,7 +26,13 @@ _overviews of connecting, routing and messaging_
 tangle-ui  --size=1500x800 -- --db-port 6379 --db-host 127.0.0.1
 ```
 
-tangle-things
+Notes:
+
+Because tangle-ui glues together functionality that involves wireless scanning and access point creation there is a sudo prompt in the terminal at startup when the subprocess calls are made.
+
+APs are created with`create_ap`, not all wireless cards will work. An Alfa AWUS036NHA works.
+
+**tangle-things**
 
 _generate code for things hardware and software_
 
