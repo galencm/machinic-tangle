@@ -14,9 +14,10 @@ import paho.mqtt.client as mosquitto
 from textx.metamodel import metamodel_from_file
 
 class Bridge(object):
-    def __init__(self, db_host, db_port, broker_host, broker_port, allow_shell_calls=False):
+    def __init__(self, db_host, db_port, broker_host, broker_port, env_vars=None, allow_shell_calls=False):
         self.routing_ling = "pathling"
         self.routes_key = "machinic:routes:{}:{}".format(db_host, db_port)
+        self.env_vars = env_vars
         self.allow_shell_calls = allow_shell_calls
         self.pathling_model_file = pathlib.Path(pathlib.PurePath(pathlib.Path(__file__).parents[0], "pathling.tx"))
         self.pathling_metamodel = metamodel_from_file(self.pathling_model_file)
@@ -37,6 +38,10 @@ class Bridge(object):
     def routing(self, channel, message):
         routes = self.redis_conn.hgetall(self.routes_key)
         substitutions = {}
+        try:
+            substitutions.update(self.env_vars())
+        except:
+            pass
         message = message.decode()
         substitutions["$message"] = message
         substitutions["$channel"] = channel
@@ -48,7 +53,7 @@ class Bridge(object):
                     # try to do substitutions
                     message = path.munge.template
                     for k, v in substitutions.items():
-                        message = message.replace(k, v)
+                        message = message.replace(str(k), str(v))
                         print(message)
                 except Exception as ex:
                     print(ex)
@@ -67,7 +72,15 @@ class Bridge(object):
                             # strip trailing spaces that may cause subprocess call problems
                             path.destination.call = path.destination.call.strip(" ")
                             path.destination.args = [arg.strip(" ") for arg in path.destination.args]
-                            print("shell call", path.destination.call, path.destination.args, substitutions)
+                            print("sub dict: ", substitutions)
+                            print("shell call (pre-sub):", path.destination.call, path.destination.args)
+                            # substitutions for shell call and args
+                            for k, v in substitutions.items():
+                                path.destination.call = path.destination.call.replace(str(k), str(v))
+                                for i, shell_param in enumerate(path.destination.args):
+                                    path.destination.args[i] = shell_param.replace(str(k), str(v))
+                            print("shell call (post-sub):", path.destination.call, path.destination.args)
+
                             if "NonblockingCall" in str(path.destination):
                                 subprocess.Popen([path.destination.call, *path.destination.args])
                             elif "BlockingCall" in str(path.destination):

@@ -184,7 +184,18 @@ class BrokerService(BoxLayout):
         # connect a client
         self.create_client()
         super(BrokerService, self).__init__()
-        b = bridge.Bridge(self.app.db_host, self.app.db_port, self.config_vars["mqtt_host"], self.config_vars["mqtt_port"], allow_shell_calls=allow_shell_calls)
+        b = bridge.Bridge(self.app.db_host,
+                          self.app.db_port,
+                          self.config_vars["mqtt_host"],
+                          self.config_vars["mqtt_port"],
+                          env_vars = self.env_vars,
+                          allow_shell_calls=allow_shell_calls)
+
+    def env_vars(self):
+        env = {}
+        env["$DB_PORT"] = self.app.db_port
+        env["$DB_HOST"] = self.app.db_host
+        return env
 
     def create_broker(self):
         # stop any existing if updating
