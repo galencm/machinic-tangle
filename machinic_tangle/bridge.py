@@ -64,6 +64,10 @@ class Bridge(object):
                             self.redis_conn.hmset(path.destination.name, {path.destination.field : message})
                     elif path.send_as == "--":
                         if self.allow_shell_calls:
+                            # strip trailing spaces that may cause subprocess call problems
+                            path.destination.call = path.destination.call.strip(" ")
+                            path.destination.args = [arg.strip(" ") for arg in path.destination.args]
+                            print("shell call", path.destination.call, path.destination.args, substitutions)
                             if "NonblockingCall" in str(path.destination):
                                 subprocess.Popen([path.destination.call, *path.destination.args])
                             elif "BlockingCall" in str(path.destination):
