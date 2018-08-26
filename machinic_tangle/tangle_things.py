@@ -8,6 +8,7 @@ import pathlib
 import os
 import shutil
 import argparse
+import fnmatch
 import uuid
 import subprocess
 from lxml import etree
@@ -35,12 +36,23 @@ def scaffold_thing(thing_name, thing_type, model_type):
             output.set("value", "1".format(thing_name))
 
     model_xml.write(str(pathlib.PurePath(cwd, model_file)), pretty_print=True)
-    template_file = "iot_{}_{}.gsl".format(model_type, thing_type)
-    shutil.copy(pathlib.PurePath(module_path(), template_file), cwd)
-    # run gsl to generate code / create directories
-    subprocess.call(["gsl","-script:{}".format(template_file), model_file], cwd=cwd)
-    subprocess.call(["chmod", "+x", "regenerate.sh"], cwd=cwd)
-    subprocess.call(["./regenerate.sh"], cwd=cwd)
+    # use pattern to match various prefixes: iot, gui, cli, ...
+    template_pattern = "*_{}_{}.gsl".format(model_type, thing_type)
+    template_file = None
+    for file in pathlib.Path(module_path()).iterdir():
+        if fnmatch.fnmatch(file, template_pattern):
+            template_file = pathlib.Path(file).name
+            print("found template: {}".format(template_file))
+            break
+
+    if template_file:
+        shutil.copy(pathlib.PurePath(module_path(), template_file), cwd)
+        # run gsl to generate code / create directories
+        subprocess.call(["gsl","-script:{}".format(template_file), model_file], cwd=cwd)
+        subprocess.call(["chmod", "+x", "regenerate.sh"], cwd=cwd)
+        subprocess.call(["./regenerate.sh"], cwd=cwd)
+    else:
+        print("no template file found for: {}".format(template_pattern))
 
 def module_path():
     return pathlib.PurePath(pathlib.Path(__file__).parents[0])
