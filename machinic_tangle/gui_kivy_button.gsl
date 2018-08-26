@@ -1,0 +1,81 @@
+.- This Source Code Form is subject to the terms of the Mozilla Public
+.- License, v. 2.0. If a copy of the MPL was not distributed with this
+.- file, You can obtain one at http://mozilla.org/MPL/2.0/.
+.-
+.- Copyright (c) 2018, Galen Curwen-McAdams
+
+. directory.create("./$(peripheral.name)_$(peripheral.type)")
+
+.output "./regenerate.sh"
+#!/bin/bash
+# this is generated code
+gsl -script:gui_kivy_button.gsl model_button.xml 
+echo "to modify code generation, edit .gsl or .xml files and run regenerate.sh"
+
+.output "./$(peripheral.name)_$(peripheral.type)/$(peripheral.type)_$(peripheral.name).py"
+#!/usr/bin/python3
+
+import argparse
+import time
+
+import paho.mqtt.publish
+
+from kivy.app import App
+from kivy.uix.boxlayout import BoxLayout
+from kivy.lang import Builder
+from kivy.core.window import Window
+
+Builder.load_string('''
+<ButtonGui>:
+    Button:
+        id:button
+        text: "$(peripheral.alternative_press)"
+        on_press: root.send_values()
+''')
+
+class ButtonGui(BoxLayout):
+    def __init__(self, broker_host, broker_port, **kwargs):
+        self.broker_host = broker_host
+        self.broker_port = broker_port
+        super(ButtonGui, self).__init__(**kwargs)
+        self.text = "press {} to send message".format("$(peripheral.alternative_press:)")
+        self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
+        self._keyboard.bind(on_key_down=self._on_keyboard_down)
+
+    def _keyboard_closed(self):
+        self._keyboard.unbind(on_key_down=self._on_keyboard_down)
+        self._keyboard = None
+
+    def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
+        if keycode[1] == '$(peripheral.alternative_press:)':
+            self.ids.button.trigger_action()
+        return True
+
+    def send_values(self,*args):
+. for peripheral.output
+.- the trailing colon preserves case
+        print('$(output.channel:)','$(output.value:)')
+        paho.mqtt.publish.single("$(output.channel:)","$(output.value)", hostname=self.broker_host, port=self.broker_port)
+
+        time.sleep(0.01)
+. endfor
+
+class ButtonApp(App):
+    def __init__(self, *args, **kwargs):
+        self.broker_host = kwargs["broker_host"]
+        self.broker_port = kwargs["broker_port"]
+        super(ButtonApp, self).__init__()
+
+    def build(self):
+        return ButtonGui(self.broker_host, self.broker_port)
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--broker-host",  help="broker host ip, requires use of --broker-port")
+    parser.add_argument("--broker-port", type=int, help="broker port, requires use of --broker-host")
+    args = parser.parse_args()
+
+    if bool(args.broker_host) != bool(args.broker_port):
+        parser.error("--broker-host and --broker-port values are both required")
+
+    ButtonApp(**vars(args)).run()
