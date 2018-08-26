@@ -226,8 +226,8 @@ class AccessPointConfig(BoxLayout):
         self.interfaces = []
         self.app = app
         super(AccessPointConfig, self).__init__()
-        self.ssid_input = TextInput(height=30, size_hint_y=None)
-        self.pass_input = TextInput(height=30, size_hint_y=None)
+        self.ssid_input = TextInput(height=30, size_hint_y=None, multiline=False)
+        self.pass_input = TextInput(height=30, size_hint_y=None, multiline=False)
 
         # netifaces will detect even if interface is deactivated
         wireless_interfaces = [iface for iface in netifaces.interfaces() if iface.startswith("w")]
