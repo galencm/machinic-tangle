@@ -77,5 +77,9 @@ if __name__ == '__main__':
 
     if bool(args.broker_host) != bool(args.broker_port):
         parser.error("--broker-host and --broker-port values are both required")
-
-    ButtonApp(**vars(args)).run()
+    try:
+        ButtonApp(**vars(args)).run()
+    except Exception as ex:
+        print("Exception: {}".format(ex))
+        print("Usage example:")
+        print("python3 $(peripheral.type)_$(peripheral.name).py -- --broker-host 127.0.0.1 --broker-port 1883")
