@@ -45,6 +45,23 @@ platformio run
 platformio run -t upload
 ```
 
+**A redis server must be accessible.**
+
+To start one locally:
+
+* Create a config file to enable keyspace events and snapshot.
+* Run a redis-server process in the background
+
+```
+printf "notify-keyspace-events KEA\nSAVE 60 1\n" >> redis.conf
+redis-server redis.conf --port 6379 &
+```
+
+The server can be stopped with the command:
+```
+redis-cli -p 6379 shutdown
+```
+
 ## Contributing
 This project uses the C4 process 
 
