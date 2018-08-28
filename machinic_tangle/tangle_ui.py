@@ -268,6 +268,7 @@ class PathlingWidget(BoxLayout):
         self.app = app
         self.routes_key = "machinic:routes:{}:{}".format(app.db_host, app.db_port)
         super(PathlingWidget, self).__init__()
+        self.add_widget(Label(text="routes:", height=30, size_hint_y=None))
         self.route_input = TextInput()
         self.route_add = Button(text="update routes", height=30, size_hint_y=None)
         self.route_add.bind(on_press=lambda widget: self.update_routes())
