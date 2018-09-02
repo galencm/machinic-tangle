@@ -16,26 +16,35 @@ from lxml import etree
 # code generation approaches derived from earlier machinic
 # approaches, see ma and the concept of projectional systems
 
-def scaffold_thing(thing_name, thing_type, model_type):
+def scaffold_thing(thing_name, thing_type, model_type, xml_file):
     # create an initial directory to hold whatever is generated
     cwd = os.path.join(os.getcwd(), "{}_{}".format(thing_type, thing_name))
     if not os.path.isdir(cwd):
         os.mkdir(cwd)
 
     model_file = "model_{}.xml".format(thing_type)
-    # update model xml with thing name
-    model_xml = etree.parse(str(pathlib.PurePath(module_path(), model_file)))
-    for peripheral in model_xml.xpath('//peripheral'):
-        peripheral.set("name", thing_name)
-        for output in peripheral.xpath('.//output'):
-            # prefer publish nodes?
-            output.set("channel", "/{}".format(thing_name))
-            # value setting is a default for testing button
-            # will have to take into account things such as 
-            # sensors that might send varying values
-            output.set("value", "1".format(thing_name))
+    if xml_file is None:
+        # update model xml with thing name
+        model_xml = etree.parse(str(pathlib.PurePath(module_path(), model_file)))
+        for peripheral in model_xml.xpath('//peripheral'):
+            peripheral.set("name", thing_name)
+            for output in peripheral.xpath('.//output'):
+                # prefer publish nodes?
+                output.set("channel", "/{}".format(thing_name))
+                # value setting is a default for testing button
+                # will have to take into account things such as
+                # sensors that might send varying values
+                output.set("value", "1".format(thing_name))
 
-    model_xml.write(str(pathlib.PurePath(cwd, model_file)), pretty_print=True)
+        model_xml.write(str(pathlib.PurePath(cwd, model_file)), pretty_print=True)
+    else:
+        # rename xml into model_file format that regenerate.sh
+        # expects
+        #
+        # would be useful to have another way to overrride parts
+        # of default model_xml instead of suppling complete file
+        shutil.copy(xml_file, pathlib.PurePath(cwd, model_file))
+
     # use pattern to match various prefixes: iot, gui, cli, ...
     template_pattern = "*_{}_{}.gsl".format(model_type, thing_type)
     template_file = None
@@ -62,11 +71,22 @@ def main():
     parser.add_argument("thing_type", help="type of thing")
     parser.add_argument("--model-type", default="homie", help="model to use")
     parser.add_argument("--name", default=None, help="thing name (default is a uuid)")
+    parser.add_argument("--xml-file", default=None, help="xml file to use")
 
     args = parser.parse_args()
+
+    # try to get name from xml_file
+    # makes some assumptions about xml
+    if not args.name and args.xml_file is not None:
+        file_xml = etree.parse(args.xml_file)
+        try:
+            args.name = file_xml.xpath('//peripheral/@name')[0]
+        except:
+            # failed to get name, a uuid will be used
+            pass
 
     if not args.name:
         args.name = str(uuid.uuid4())
 
     args = vars(args)
-    scaffold_thing(args["name"], args["thing_type"], args["model_type"])
+    scaffold_thing(args["name"], args["thing_type"], args["model_type"], args["xml_file"])
