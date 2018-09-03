@@ -18,7 +18,8 @@ name="machinic_tangle",
                                         'tangle-ui = machinic_tangle.tangle_ui:main',
                                         'tangle-associative = machinic_tangle.associative:main',
                                         'tangle-things = machinic_tangle.tangle_things:main',
-                                        'tangle-bridge = machinic_tangle.bridge_cli:main'
+                                        'tangle-bridge = machinic_tangle.bridge_cli:main',
+                                        'lings-path-add = machinic_tangle.paths_add:main'
                                        ],
                             },
 )
