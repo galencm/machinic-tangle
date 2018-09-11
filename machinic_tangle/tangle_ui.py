@@ -498,7 +498,7 @@ class TangleApp(App):
         self.processes[process_name] = self.process_in_subprocess(process_name, process_args)
 
     def process_in_subprocess(self, process, process_args=None):
-        print("running", process)
+        print("running", process , process_args)
         if process_args is None:
             process_args = []
         process_call = [process, *process_args]
