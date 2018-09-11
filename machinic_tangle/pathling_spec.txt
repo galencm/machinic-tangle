@@ -29,6 +29,8 @@ foo ["$channel"] -> /bar
 (/foo > 1) ["baz"] -> bar
 
 # set key bar with value
+/foo >> "bar"::"bar"
+/foo ["$channel"] >> "bar"::"bar"
 (/foo > 1) >> bar
 
 # bar::bar set hash bar field bar with value
