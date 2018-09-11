@@ -17,6 +17,7 @@ import hashlib
 import threading
 import jinja2
 import shutil
+import operator
 import paho.mqtt.client as mosquitto
 import paho.mqtt.publish
 from textx.metamodel import metamodel_from_file
@@ -33,7 +34,6 @@ from kivy.uix.textinput import TextInput
 from kivy.uix.button import Button
 from kivy.uix.checkbox import CheckBox
 from kivy.properties import BooleanProperty
-from kivy.clock import Clock
 from kivy.uix.dropdown import DropDown
 
 r_ip, r_port = data_models.service_connection()
@@ -43,8 +43,8 @@ redis_conn = redis.StrictRedis(host=r_ip, port=r_port, decode_responses=True)
 # write and store mqtt.conf in /tmp
 # need ip and bind
 
-class DropDownInput(TextInput):
 
+class DropDownInput(TextInput):
     def __init__(self, preload=None, preload_attr=None, preload_clean=True, **kwargs):
         self.multiline = False
         self.drop_down = DropDown()
@@ -57,22 +57,30 @@ class DropDownInput(TextInput):
         super(DropDownInput, self).__init__(**kwargs)
         self.add_widget(self.drop_down)
 
-    def add_text(self,*args):
-        if args[0].text not in [btn.text for btn in self.drop_down.children[0].children if hasattr(btn ,'text')]:
+    def add_text(self, *args):
+        if args[0].text not in [
+            btn.text
+            for btn in self.drop_down.children[0].children
+            if hasattr(btn, "text")
+        ]:
             btn = Button(text=args[0].text, size_hint_y=None, height=44)
             self.drop_down.add_widget(btn)
             btn.bind(on_release=lambda btn: self.drop_down.select(btn.text))
-            if not 'preload' in args:
+            if "preload" not in args:
                 self.not_preloaded.add(btn)
 
     def on_select(self, *args):
         self.text = args[1]
-        if args[1] not in [btn.text for btn in self.drop_down.children[0].children if hasattr(btn ,'text')]:
+        if args[1] not in [
+            btn.text
+            for btn in self.drop_down.children[0].children
+            if hasattr(btn, "text")
+        ]:
             self.drop_down.append(Button(text=args[1]))
-            self.not_preloaded.add(btn)
+            # self.not_preloaded.add(btn)
         # call on_text_validate after selection
         # to avoid having to select textinput and press enter
-        self.dispatch('on_text_validate')
+        self.dispatch("on_text_validate")
 
     def on_touch_down(self, touch):
         preloaded = set()
@@ -83,16 +91,21 @@ class DropDownInput(TextInput):
                     thing_string = str(operator.attrgetter(self.preload_attr)(thing))
                 else:
                     thing_string = str(thing)
-                self.add_text(Button(text=thing_string),'preload')
+                self.add_text(Button(text=thing_string), "preload")
                 preloaded.add(thing_string)
 
         # preload_clean removes entries that
         # are not in the preload source anymore
         if self.preload_clean is True:
-            added_through_widget = [btn.text for btn in self.not_preloaded if hasattr(btn ,'text')]
+            added_through_widget = [
+                btn.text for btn in self.not_preloaded if hasattr(btn, "text")
+            ]
             for btn in self.drop_down.children[0].children:
                 try:
-                    if btn.text not in preloaded and btn.text not in added_through_widget:
+                    if (
+                        btn.text not in preloaded
+                        and btn.text not in added_through_widget
+                    ):
                         self.drop_down.remove_widget(btn)
                 except Exception as ex:
                     pass
@@ -104,12 +117,14 @@ class DropDownInput(TextInput):
             self.drop_down.open(self)
         return super(DropDownInput, self).on_touch_up(touch)
 
+
 @attr.s
 class Service(object):
     name = attr.ib()
     args = attr.ib(default=attr.Factory(list))
     kwargs = attr.ib(default=attr.Factory(dict))
     with_sudo = attr.ib(default=False)
+
 
 class ServiceItem(BoxLayout):
     def __init__(self, name, app=None, *args, **kwargs):
@@ -129,6 +144,7 @@ class ServiceItem(BoxLayout):
         else:
             self.app.stop_process(self.service.name)
 
+
 class SsidMap(BoxLayout):
     def __init__(self, ssid_source=None, app=None, *args, **kwargs):
         self.ssid_source = ssid_source
@@ -142,11 +158,10 @@ class SsidMap(BoxLayout):
     def update_ssids(self, ssids):
         try:
             highlight_patterns = self.ssid_source.associate_patterns
-        except:
+        except Exception as ex:
             highlight_patterns = []
         self.ssid_list.text = ""
         for ssid in ssids:
-            background_color = None
             for pattern in highlight_patterns:
                 if fnmatch.fnmatch(ssid.lower(), pattern.lower()):
                     # on match
@@ -156,14 +171,25 @@ class SsidMap(BoxLayout):
                     template_vars["device_id"] = "foo"
                     template_vars["ssid"] = self.ssid_source.config_vars["ap_ssid"]
                     template_vars["ssid_pass"] = self.ssid_source.config_vars["ap_pass"]
-                    template_vars["mqtt_host"] = self.ssid_source.ap_ip #"192.168.12.1" # ap0 iface inet address
+                    template_vars[
+                        "mqtt_host"
+                    ] = (
+                        self.ssid_source.ap_ip
+                    )  # "192.168.12.1" # ap0 iface inet address
                     template_vars["mqtt_port"] = 1883
-                    template = jinja2.Environment().from_string(self.ssid_source.template_input.text).render(template_vars)
+                    template = (
+                        jinja2.Environment()
+                        .from_string(self.ssid_source.template_input.text)
+                        .render(template_vars)
+                    )
                     try:
-                        associative.associate(self.ssid_source.scan_iface, ssid, template, retries=5)
-                    except:
+                        associative.associate(
+                            self.ssid_source.scan_iface, ssid, template, retries=5
+                        )
+                    except Exception as ex:
                         pass
             self.ssid_list.text += "{}\n".format(ssid)
+
 
 class BrokerService(BoxLayout):
     def __init__(self, app=None, allow_shell_calls=False, *args, **kwargs):
@@ -184,12 +210,16 @@ class BrokerService(BoxLayout):
         # connect a client
         self.create_client()
         super(BrokerService, self).__init__()
-        b = bridge.Bridge(self.app.db_host,
-                          self.app.db_port,
-                          self.config_vars["mqtt_host"],
-                          self.config_vars["mqtt_port"],
-                          env_vars = self.env_vars,
-                          allow_shell_calls=allow_shell_calls)
+        # start a bridge
+        b = bridge.Bridge(
+            self.app.db_host,
+            self.app.db_port,
+            self.config_vars["mqtt_host"],
+            self.config_vars["mqtt_port"],
+            env_vars=self.env_vars,
+            allow_shell_calls=allow_shell_calls,
+        )
+        print(b)
 
     def env_vars(self):
         env = {}
@@ -201,9 +231,12 @@ class BrokerService(BoxLayout):
         # stop any existing if updating
         try:
             self.app.stop_process(self.process_name)
-        except:
+        except Exception as ex:
             pass
-        self.app.run_process(self.process_name, ["-c", str(pathlib.Path(self.config_location, self.config_file))])
+        self.app.run_process(
+            self.process_name,
+            ["-c", str(pathlib.Path(self.config_location, self.config_file))],
+        )
 
     def create_client(self):
         # clear existing in case connection
@@ -212,24 +245,29 @@ class BrokerService(BoxLayout):
             self.mqtt_client.loop_stop()
             self.mqtt_client.disconnect()
             del self.mqtt_client
-        except:
+        except Exception as ex:
             pass
         # create client
         self.mqtt_client = mosquitto.Client()
         # handle in app to update text display
         self.mqtt_client.on_message = self.app.on_mqtt_message
-        self.mqtt_client.connect(self.config_vars["mqtt_host"], int(self.config_vars["mqtt_port"]), 60)
+        self.mqtt_client.connect(
+            self.config_vars["mqtt_host"], int(self.config_vars["mqtt_port"]), 60
+        )
         # subscribe to everything after connect
-        self.mqtt_client.subscribe('#', 0)
+        self.mqtt_client.subscribe("#", 0)
         self.mqtt_client.loop_start()
 
     def update_config(self, overwrite=False):
         config = pathlib.Path(self.config_location, self.config_file)
-        template = pathlib.Path(pathlib.PurePath(pathlib.Path(__file__).parents[0], self.config_template)).read_text()
+        template = pathlib.Path(
+            pathlib.PurePath(pathlib.Path(__file__).parents[0], self.config_template)
+        ).read_text()
         template = jinja2.Environment().from_string(template).render(self.config_vars)
         if not config.is_file() or overwrite is True:
             with config.open("w+") as f:
                 f.write(template)
+
 
 class AccessPointConfig(BoxLayout):
     def __init__(self, app=None, *args, **kwargs):
@@ -241,26 +279,43 @@ class AccessPointConfig(BoxLayout):
         self.pass_input = TextInput(height=30, size_hint_y=None, multiline=False)
 
         # netifaces will detect even if interface is deactivated
-        wireless_interfaces = [iface for iface in netifaces.interfaces() if iface.startswith("w")]
-        self.scan_ifaces = DropDownInput(preload=wireless_interfaces, height=30, size_hint_y=None)
-        self.scan_ifaces.bind(on_text_validate=lambda widget: self.app.wireless_details.update_scan(widget.text))
-        self.ap_ifaces = DropDownInput(preload=wireless_interfaces, height=30, size_hint_y=None)
-        self.ap_ifaces.bind(on_text_validate=lambda widget: self.app.wireless_details.update_ap(widget.text, self.ssid_input.text, self.pass_input.text))
+        wireless_interfaces = [
+            iface for iface in netifaces.interfaces() if iface.startswith("w")
+        ]
+        self.scan_ifaces = DropDownInput(
+            preload=wireless_interfaces, height=30, size_hint_y=None
+        )
+        self.scan_ifaces.bind(
+            on_text_validate=lambda widget: self.app.wireless_details.update_scan(
+                widget.text
+            )
+        )
+        self.ap_ifaces = DropDownInput(
+            preload=wireless_interfaces, height=30, size_hint_y=None
+        )
+        self.ap_ifaces.bind(
+            on_text_validate=lambda widget: self.app.wireless_details.update_ap(
+                widget.text, self.ssid_input.text, self.pass_input.text
+            )
+        )
 
         # set default text
-        self.scan_ifaces.text ="wls1"
-        self.ap_ifaces.text ="wlp0s26f7u1"
+        self.scan_ifaces.text = "wls1"
+        self.ap_ifaces.text = "wlp0s26f7u1"
         self.ssid_input.text = "foo"
         self.pass_input.text = "bar_bar_"
 
-        for label, widget in (("ssid", self.ssid_input),
-                              ("password", self.pass_input),
-                              ("scan interface", self.scan_ifaces),
-                              ("ap interface", self.ap_ifaces)):
+        for label, widget in (
+            ("ssid", self.ssid_input),
+            ("password", self.pass_input),
+            ("scan interface", self.scan_ifaces),
+            ("ap interface", self.ap_ifaces),
+        ):
             row = BoxLayout(height=30, size_hint_y=None)
             row.add_widget(Label(text=label))
             row.add_widget(widget)
             self.add_widget(row)
+
 
 class PathlingWidget(BoxLayout):
     def __init__(self, app=None, *args, **kwargs):
@@ -276,15 +331,27 @@ class PathlingWidget(BoxLayout):
         self.add_widget(self.route_add)
 
         test_row = BoxLayout(height=30, size_hint_y=None, orientation="horizontal")
-        self.add_widget(Label(text="broker test [channel | message]", height=30, size_hint_y=None))
+        self.add_widget(
+            Label(text="broker test [channel | message]", height=30, size_hint_y=None)
+        )
         for widget in ("test_channel", "test_message"):
             input_widget = TextInput(multiline=False)
             setattr(self, widget, input_widget)
             test_row.add_widget(input_widget)
-        self.test_channel.bind(on_text_validate=lambda widget: self.channel_test(self.test_channel.text, self.test_message.text))
-        self.test_message.bind(on_text_validate=lambda widget: self.channel_test(self.test_channel.text, self.test_message.text))
+        self.test_channel.bind(
+            on_text_validate=lambda widget: self.channel_test(
+                self.test_channel.text, self.test_message.text
+            )
+        )
+        self.test_message.bind(
+            on_text_validate=lambda widget: self.channel_test(
+                self.test_channel.text, self.test_message.text
+            )
+        )
         self.add_widget(test_row)
-        self.pathling_model_file = pathlib.Path(pathlib.PurePath(pathlib.Path(__file__).parents[0], "pathling.tx"))
+        self.pathling_model_file = pathlib.Path(
+            pathlib.PurePath(pathlib.Path(__file__).parents[0], "pathling.tx")
+        )
         self.pathling_metamodel = metamodel_from_file(self.pathling_model_file)
         self.fetch_routes()
 
@@ -300,15 +367,15 @@ class PathlingWidget(BoxLayout):
                 self.remove_route(route)
             elif not route.startswith("#"):
                 try:
-                    # validate
-                    path = self.pathling_metamodel.model_from_str(route)
+                    # validate path
+                    self.pathling_metamodel.model_from_str(route)
                     self.add_route(route)
                 except Exception as ex:
                     print(ex)
                     # comment out invalid routes
                     # and add error as comment beneath
                     route = "#" + route
-                    route+="\n#{}".format(ex)
+                    route += "\n#{}".format(ex)
                 updated.append(route)
         self.route_input.text = "\n".join(updated)
         self.fetch_routes
@@ -321,13 +388,14 @@ class PathlingWidget(BoxLayout):
 
     def add_route(self, route):
         route_hash = hashlib.sha224(route.encode()).hexdigest()
-        redis_conn.hmset(self.routes_key, {route_hash : route})
+        redis_conn.hmset(self.routes_key, {route_hash: route})
 
     def fetch_routes(self):
         db_routes = redis_conn.hgetall(self.routes_key)
         for _, route in db_routes.items():
-            if not route in self.route_input.text.split("\n"):
+            if route not in self.route_input.text.split("\n"):
                 self.route_input.text += route + "\n"
+
 
 class WirelessDetails(BoxLayout):
     def __init__(self, app=None, *args, **kwargs):
@@ -353,7 +421,9 @@ class WirelessDetails(BoxLayout):
         self.scan_iface = "wls1"
         self.config = BoxLayout(orientation="vertical")
         # scan for aps in a thread so it does not block ui
-        self.scheduled_scan = Clock.schedule_interval(lambda foo: threading.Thread(target=self.scan_aps).start(), int(10))
+        self.scheduled_scan = Clock.schedule_interval(
+            lambda foo: threading.Thread(target=self.scan_aps).start(), int(10)
+        )
         # create_ap process
         # sudo means than a password prompt appears in terminal
         self.config_vars = {}
@@ -362,7 +432,9 @@ class WirelessDetails(BoxLayout):
         self.config_vars["ap_pass"] = "bar_bar_"
         self.config_vars["ap_virtual_iface"] = "ap0"
         self.create_ap()
-        self.scheduled_check = Clock.schedule_interval(lambda foo: self.check_connected(), int(5))
+        self.scheduled_check = Clock.schedule_interval(
+            lambda foo: self.check_connected(), int(5)
+        )
 
     def update_scan(self, iface):
         self.scan_iface = iface
@@ -376,7 +448,7 @@ class WirelessDetails(BoxLayout):
     @property
     def ap_ip(self):
         iface = self.config_vars["ap_virtual_iface"]
-        iface_ip = netifaces.ifaddresses(iface)[2][0]['addr']
+        iface_ip = netifaces.ifaddresses(iface)[2][0]["addr"]
         return iface_ip
 
     def create_ap(self):
@@ -385,8 +457,10 @@ class WirelessDetails(BoxLayout):
         # create_ap will increment virtual interfaces
         # on the same wifi card ie ap0 ap1
         try:
-            running_aps = subprocess.check_output(["create_ap", "--list-running"]).decode()
-        except:
+            running_aps = subprocess.check_output(
+                ["create_ap", "--list-running"]
+            ).decode()
+        except Exception as ex:
             running_aps = ""
 
         if running_aps:
@@ -395,21 +469,32 @@ class WirelessDetails(BoxLayout):
                 for word in line.split(" "):
                     try:
                         pids.append(int(word))
-                    except:
+                    except Exception as ex:
                         pass
 
             # sudo causes password prompt in terminal
             for pid in pids:
-                print(subprocess.check_output(["sudo", "create_ap", "--stop", str(pid)]).decode())
+                print(
+                    subprocess.check_output(
+                        ["sudo", "create_ap", "--stop", str(pid)]
+                    ).decode()
+                )
 
-        self.app.run_process("sudo", "create_ap -n {ap_wifi_iface} {ap_ssid} {ap_pass}".format_map(self.config_vars).split())
+        self.app.run_process(
+            "sudo",
+            "create_ap -n {ap_wifi_iface} {ap_ssid} {ap_pass}".format_map(
+                self.config_vars
+            ).split(),
+        )
 
     def scan_aps(self):
         found = associative.scan(self.scan_iface)
         self.ssid_map.update_ssids(found)
 
     def load_template(self, file):
-        self.associate_template = pathlib.Path(pathlib.PurePath(pathlib.Path(__file__).parents[0], file)).read_text()
+        self.associate_template = pathlib.Path(
+            pathlib.PurePath(pathlib.Path(__file__).parents[0], file)
+        ).read_text()
         print(self.associate_template)
         self.template_input.text = self.associate_template
 
@@ -420,16 +505,18 @@ class WirelessDetails(BoxLayout):
             for word in line.split(" "):
                 try:
                     pids.append(int(word))
-                except:
+                except Exception as ex:
                     pass
 
         self.connected_clients.text = ""
         for pid in pids:
             try:
-                connected_clients = subprocess.check_output(["create_ap", "--list-clients", str(pid)]).decode()
+                connected_clients = subprocess.check_output(
+                    ["create_ap", "--list-clients", str(pid)]
+                ).decode()
                 print(connected_clients)
                 self.connected_clients.text += connected_clients
-            except:
+            except Exception as ex:
                 # not a pid
                 pass
 
@@ -437,9 +524,12 @@ class WirelessDetails(BoxLayout):
 
     def enumerate_connected(self):
         try:
-            self.connected_to_ap.text = subprocess.check_output("nmap -sP {ap_ip}/24".format(ap_ip=self.ap_ip).split()).decode()
+            self.connected_to_ap.text = subprocess.check_output(
+                "nmap -sP {ap_ip}/24".format(ap_ip=self.ap_ip).split()
+            ).decode()
         except Exception as ex:
             print(ex)
+
 
 class TangleApp(App):
     def __init__(self, *args, **kwargs):
@@ -452,7 +542,7 @@ class TangleApp(App):
         if kwargs["db_host"] and kwargs["db_port"]:
             global binary_r
             global redis_conn
-            db_settings = {"host" :  kwargs["db_host"], "port" : kwargs["db_port"]}
+            db_settings = {"host": kwargs["db_host"], "port": kwargs["db_port"]}
             binary_r = redis.StrictRedis(**db_settings)
             redis_conn = redis.StrictRedis(**db_settings, decode_responses=True)
 
@@ -465,9 +555,11 @@ class TangleApp(App):
         root = BoxLayout()
         self.db_event_subscription = redis_conn.pubsub()
         # subscribe to everything
-        self.db_event_subscription.psubscribe(**{'*': self.handle_db_events})
+        self.db_event_subscription.psubscribe(**{"*": self.handle_db_events})
         # add thread to pubsub object to stop() on exit
-        self.db_event_subscription.thread = self.db_event_subscription.run_in_thread(sleep_time=0.001)
+        self.db_event_subscription.thread = self.db_event_subscription.run_in_thread(
+            sleep_time=0.001
+        )
         input_container = BoxLayout(orientation="vertical")
         input_container.add_widget(PathlingWidget(app=self))
         input_container.add_widget(AccessPointConfig(app=self))
@@ -480,25 +572,37 @@ class TangleApp(App):
         self.views["redis"] = TextInput()
         self.views["mqtt"] = TextInput()
         for view_name, view in self.views.items():
-            view_container.add_widget(Label(text=view_name, height=30, size_hint_y=None))
+            view_container.add_widget(
+                Label(text=view_name, height=30, size_hint_y=None)
+            )
             view_container.add_widget(view)
-        b = BrokerService(app=self, allow_shell_calls=self.allow_shell_calls)
+        self.broker_service = BrokerService(app=self, allow_shell_calls=self.allow_shell_calls)
 
         return root
 
     def on_mqtt_message(self, client, userdata, message):
         # print("{} {}".format(message.topic, message.payload.decode()))
         try:
-            Clock.schedule_once(lambda dt: self.update_view("mqtt", "topic: {} contents: {}".format(message.topic, message.payload.decode())), .01)
+            Clock.schedule_once(
+                lambda dt: self.update_view(
+                    "mqtt",
+                    "topic: {} contents: {}".format(
+                        message.topic, message.payload.decode()
+                    ),
+                ),
+                .01,
+            )
         except Exception as ex:
             print(ex)
 
     def run_process(self, process_name, process_args=None):
         self.stop_process(process_name)
-        self.processes[process_name] = self.process_in_subprocess(process_name, process_args)
+        self.processes[process_name] = self.process_in_subprocess(
+            process_name, process_args
+        )
 
     def process_in_subprocess(self, process, process_args=None):
-        print("running", process , process_args)
+        print("running", process, process_args)
         if process_args is None:
             process_args = []
         process_call = [process, *process_args]
@@ -526,7 +630,7 @@ class TangleApp(App):
             try:
                 self.processes[name].kill()
                 self.processes[name].terminate()
-            except:
+            except Exception as ex:
                 pass
 
     def on_stop(self):
@@ -539,18 +643,23 @@ class TangleApp(App):
         self.stop_process()
         App.get_running_app().stop()
 
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--db-key",  help="db hash key")
-    parser.add_argument("--db-key-field",  help="db hash field")
-    parser.add_argument("--db-host",  help="db host ip, requires use of --db-port")
-    parser.add_argument("--db-port", type=int, help="db port, requires use of --db-host")
-    parser.add_argument("--allow-shell-calls", action="store_true", help="allow shell calls in routing")
+    parser.add_argument("--db-key", help="db hash key")
+    parser.add_argument("--db-key-field", help="db hash field")
+    parser.add_argument("--db-host", help="db host ip, requires use of --db-port")
+    parser.add_argument(
+        "--db-port", type=int, help="db port, requires use of --db-host"
+    )
+    parser.add_argument(
+        "--allow-shell-calls", action="store_true", help="allow shell calls in routing"
+    )
     args = parser.parse_args()
 
     if bool(args.db_host) != bool(args.db_port):
         parser.error("--db-host and --db-port values are both required")
 
     app = TangleApp(**vars(args))
-    #atexit.register(app.save_session)
+    # atexit.register(app.save_session)
     app.run()

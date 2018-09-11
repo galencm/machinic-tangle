@@ -16,6 +16,7 @@ from lxml import etree
 # code generation approaches derived from earlier machinic
 # approaches, see ma and the concept of projectional systems
 
+
 def scaffold_thing(thing_name, thing_type, model_type, xml_file):
     # create an initial directory to hold whatever is generated
     cwd = os.path.join(os.getcwd(), "{}_{}".format(thing_type, thing_name))
@@ -26,9 +27,9 @@ def scaffold_thing(thing_name, thing_type, model_type, xml_file):
     if xml_file is None:
         # update model xml with thing name
         model_xml = etree.parse(str(pathlib.PurePath(module_path(), model_file)))
-        for peripheral in model_xml.xpath('//peripheral'):
+        for peripheral in model_xml.xpath("//peripheral"):
             peripheral.set("name", thing_name)
-            for output in peripheral.xpath('.//output'):
+            for output in peripheral.xpath(".//output"):
                 # prefer publish nodes?
                 output.set("channel", "/{}".format(thing_name))
                 # value setting is a default for testing button
@@ -57,14 +58,18 @@ def scaffold_thing(thing_name, thing_type, model_type, xml_file):
     if template_file:
         shutil.copy(pathlib.PurePath(module_path(), template_file), cwd)
         # run gsl to generate code / create directories
-        subprocess.call(["gsl","-script:{}".format(template_file), model_file], cwd=cwd)
+        subprocess.call(
+            ["gsl", "-script:{}".format(template_file), model_file], cwd=cwd
+        )
         subprocess.call(["chmod", "+x", "regenerate.sh"], cwd=cwd)
         subprocess.call(["./regenerate.sh"], cwd=cwd)
     else:
         print("no template file found for: {}".format(template_pattern))
 
+
 def module_path():
     return pathlib.PurePath(pathlib.Path(__file__).parents[0])
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -80,8 +85,8 @@ def main():
     if not args.name and args.xml_file is not None:
         file_xml = etree.parse(args.xml_file)
         try:
-            args.name = file_xml.xpath('//peripheral/@name')[0]
-        except:
+            args.name = file_xml.xpath("//peripheral/@name")[0]
+        except Exception as ex:
             # failed to get name, a uuid will be used
             pass
 
@@ -89,4 +94,6 @@ def main():
         args.name = str(uuid.uuid4())
 
     args = vars(args)
-    scaffold_thing(args["name"], args["thing_type"], args["model_type"], args["xml_file"])
+    scaffold_thing(
+        args["name"], args["thing_type"], args["model_type"], args["xml_file"]
+    )
