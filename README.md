@@ -16,6 +16,14 @@ cd machinic-tangle/
 pip3 install --editable ./ --user --process-dependency-links
 ```
 
+Setup linting and formatting git commit hooks:
+
+```
+cd machinic-tangle/
+pre-commit install
+pre-commit install -t commit-msg
+```
+
 ## Usage
 
 **tangle-ui**

@@ -20,6 +20,7 @@ setup(
         "jinja2",
         "netifaces",
         "textx",
+        "pre-commit",
     ],
     dependency_links=[
         "https://github.com/galencm/ma-cli/tarball/master#egg=ma_cli-0.1",
