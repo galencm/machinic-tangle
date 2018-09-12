@@ -1,4 +1,6 @@
 include LICENSE.txt
+include README.md
+include CONTRIBUTING.md
 
 include machinic_tangle/iot_homie_button.gsl
 include machinic_tangle/model_button.xml
