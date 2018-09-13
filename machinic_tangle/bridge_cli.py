@@ -41,7 +41,8 @@ def main():
         }
 
     print(args.db_host, args.db_port, args.broker_host, args.broker_port, env_vars)
-    b = bridge.Bridge(
+    # start bridge
+    bridge.Bridge(
         args.db_host,
         args.db_port,
         args.broker_host,

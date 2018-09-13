@@ -86,7 +86,7 @@ def main():
         file_xml = etree.parse(args.xml_file)
         try:
             args.name = file_xml.xpath("//peripheral/@name")[0]
-        except:
+        except Exception as ex:
             # failed to get name, a uuid will be used
             pass
 

@@ -27,8 +27,8 @@ def main():
     route = args.route
 
     try:
-        # validate
-        path = pathling_metamodel.model_from_str(route)
+        # validate path
+        pathling_metamodel.model_from_str(route)
         route_hash = hashlib.sha224(route.encode()).hexdigest()
         redis_conn.hmset(routes_key, {route_hash: route})
     except Exception as ex:

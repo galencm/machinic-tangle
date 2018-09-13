@@ -51,7 +51,7 @@ class Bridge(object):
         substitutions = {}
         try:
             substitutions.update(self.env_vars())
-        except:
+        except Exception as ex:
             pass
         message = message.decode()
         substitutions["$message"] = message

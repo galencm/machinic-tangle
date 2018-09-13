@@ -17,6 +17,7 @@ import hashlib
 import threading
 import jinja2
 import shutil
+import operator
 import paho.mqtt.client as mosquitto
 import paho.mqtt.publish
 from textx.metamodel import metamodel_from_file
@@ -33,7 +34,6 @@ from kivy.uix.textinput import TextInput
 from kivy.uix.button import Button
 from kivy.uix.checkbox import CheckBox
 from kivy.properties import BooleanProperty
-from kivy.clock import Clock
 from kivy.uix.dropdown import DropDown
 
 r_ip, r_port = data_models.service_connection()
@@ -66,7 +66,7 @@ class DropDownInput(TextInput):
             btn = Button(text=args[0].text, size_hint_y=None, height=44)
             self.drop_down.add_widget(btn)
             btn.bind(on_release=lambda btn: self.drop_down.select(btn.text))
-            if not "preload" in args:
+            if "preload" not in args:
                 self.not_preloaded.add(btn)
 
     def on_select(self, *args):
@@ -77,7 +77,6 @@ class DropDownInput(TextInput):
             if hasattr(btn, "text")
         ]:
             self.drop_down.append(Button(text=args[1]))
-            self.not_preloaded.add(btn)
         # call on_text_validate after selection
         # to avoid having to select textinput and press enter
         self.dispatch("on_text_validate")
@@ -158,11 +157,10 @@ class SsidMap(BoxLayout):
     def update_ssids(self, ssids):
         try:
             highlight_patterns = self.ssid_source.associate_patterns
-        except:
+        except Exception as ex:
             highlight_patterns = []
         self.ssid_list.text = ""
         for ssid in ssids:
-            background_color = None
             for pattern in highlight_patterns:
                 if fnmatch.fnmatch(ssid.lower(), pattern.lower()):
                     # on match
@@ -187,7 +185,7 @@ class SsidMap(BoxLayout):
                         associative.associate(
                             self.ssid_source.scan_iface, ssid, template, retries=5
                         )
-                    except:
+                    except Exception as ex:
                         pass
             self.ssid_list.text += "{}\n".format(ssid)
 
@@ -211,7 +209,8 @@ class BrokerService(BoxLayout):
         # connect a client
         self.create_client()
         super(BrokerService, self).__init__()
-        b = bridge.Bridge(
+        # start bridge
+        self.bridge = bridge.Bridge(
             self.app.db_host,
             self.app.db_port,
             self.config_vars["mqtt_host"],
@@ -230,7 +229,7 @@ class BrokerService(BoxLayout):
         # stop any existing if updating
         try:
             self.app.stop_process(self.process_name)
-        except:
+        except Exception as ex:
             pass
         self.app.run_process(
             self.process_name,
@@ -244,7 +243,7 @@ class BrokerService(BoxLayout):
             self.mqtt_client.loop_stop()
             self.mqtt_client.disconnect()
             del self.mqtt_client
-        except:
+        except Exception as ex:
             pass
         # create client
         self.mqtt_client = mosquitto.Client()
@@ -366,8 +365,8 @@ class PathlingWidget(BoxLayout):
                 self.remove_route(route)
             elif not route.startswith("#"):
                 try:
-                    # validate
-                    path = self.pathling_metamodel.model_from_str(route)
+                    # validate path
+                    self.pathling_metamodel.model_from_str(route)
                     self.add_route(route)
                 except Exception as ex:
                     print(ex)
@@ -392,7 +391,7 @@ class PathlingWidget(BoxLayout):
     def fetch_routes(self):
         db_routes = redis_conn.hgetall(self.routes_key)
         for _, route in db_routes.items():
-            if not route in self.route_input.text.split("\n"):
+            if route not in self.route_input.text.split("\n"):
                 self.route_input.text += route + "\n"
 
 
@@ -459,7 +458,7 @@ class WirelessDetails(BoxLayout):
             running_aps = subprocess.check_output(
                 ["create_ap", "--list-running"]
             ).decode()
-        except:
+        except Exception as ex:
             running_aps = ""
 
         if running_aps:
@@ -468,7 +467,7 @@ class WirelessDetails(BoxLayout):
                 for word in line.split(" "):
                     try:
                         pids.append(int(word))
-                    except:
+                    except Exception as ex:
                         pass
 
             # sudo causes password prompt in terminal
@@ -504,7 +503,7 @@ class WirelessDetails(BoxLayout):
             for word in line.split(" "):
                 try:
                     pids.append(int(word))
-                except:
+                except Exception as ex:
                     pass
 
         self.connected_clients.text = ""
@@ -515,7 +514,7 @@ class WirelessDetails(BoxLayout):
                 ).decode()
                 print(connected_clients)
                 self.connected_clients.text += connected_clients
-            except:
+            except Exception as ex:
                 # not a pid
                 pass
 
@@ -575,7 +574,9 @@ class TangleApp(App):
                 Label(text=view_name, height=30, size_hint_y=None)
             )
             view_container.add_widget(view)
-        b = BrokerService(app=self, allow_shell_calls=self.allow_shell_calls)
+        self.broker_service = BrokerService(
+            app=self, allow_shell_calls=self.allow_shell_calls
+        )
 
         return root
 
@@ -629,7 +630,7 @@ class TangleApp(App):
             try:
                 self.processes[name].kill()
                 self.processes[name].terminate()
-            except:
+            except Exception as ex:
                 pass
 
     def on_stop(self):
