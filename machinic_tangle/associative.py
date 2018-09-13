@@ -16,7 +16,6 @@ import json
 
 # modified from associative.py in machinic-core
 
-
 def scan_loop(iface, template=None, template_vars=None, patterns=None, rate=5):
     if patterns is None:
         patterns = "*"
@@ -25,32 +24,26 @@ def scan_loop(iface, template=None, template_vars=None, patterns=None, rate=5):
         essids = scan(iface)
         for pattern in patterns:
             for match_ssid in fnmatch.filter(essids, pattern):
-                payload = (
-                    jinja2.Environment().from_string(template).render(template_vars)
-                )
-                print("{} {}".format(match_ssid, pattern))
+                payload =  jinja2.Environment().from_string(template).render(template_vars)
+                print("{} {}".format(match_ssid,pattern))
                 print("preparing to associate...")
                 associate(iface, match_ssid, payload)
         time.sleep(rate)
 
-
 def scan(scan_iface):
     interfaces = netifaces.interfaces()
     wifi_ifaces = [iface for iface in interfaces if scan_iface == iface]
-    found_essids = []
+    found_essids =[]
 
     for iface in wifi_ifaces:
         found = []
         print("{} scanning...".format(iface))
-        found = subprocess.check_output(["sudo", "iwlist", iface, "scan"])
-        found = [
-            ssid.split('"')[1] for ssid in str(found).split("\\n") if "ESSID" in ssid
-        ]
+        found = subprocess.check_output(['sudo', 'iwlist', iface, 'scan'])
+        found = [ssid.split('"')[1] for ssid in str(found).split('\\n') if "ESSID" in ssid]
 
-        print("{} found ssids: {}".format(iface, found))
+        print("{} found ssids: {}".format(iface,found))
         found_essids.extend(found)
     return found_essids
-
 
 def associate(iface, essid, payload, delay=5, retries=None):
     # Send on association
@@ -62,11 +55,7 @@ def associate(iface, essid, payload, delay=5, retries=None):
     # see commented code block at below
 
     try:
-        print(
-            subprocess.check_output(
-                "nmcli dev wifi connect {}".format(essid).split(" ")
-            )
-        )
+        print(subprocess.check_output("nmcli dev wifi connect {}".format(essid).split(" ")))
         send(iface, payload)
     except Exception as ex:
         print(ex)
@@ -102,49 +91,28 @@ def associate(iface, essid, payload, delay=5, retries=None):
     #     # send payload
     #     send(iface, payload)
 
-
 def send(iface, payload, post_send_delay=5):
-    iface_ip = netifaces.ifaddresses(iface)[2][0]["addr"]
-    # assume ap ip ends with .1
-    ap_ip = iface_ip.rsplit(".", 1)[0] + ".1"
-    # logger.info("connected to {} with ip {}".format(essid,iface_ip))
+    iface_ip = netifaces.ifaddresses(iface)[2][0]['addr'] 
+    #assume ap ip ends with .1
+    ap_ip = iface_ip.rsplit(".",1)[0]+".1"
+    #logger.info("connected to {} with ip {}".format(essid,iface_ip))
     print("ap ip assumed to be {}".format(ap_ip))
-    # url is homie specific and should be templated
+    #url is homie specific and should be templated
     print("payload: ", payload)
-    response = subprocess.check_output(
-        [
-            "curl",
-            "-X",
-            "PUT",
-            "http://{}/config".format(ap_ip),
-            "--header",
-            "Content-Type:",
-            "application/json",
-            "-d",
-            "{}".format(json.dumps(json.loads(payload))),
-        ]
-    )
+    response = subprocess.check_output(['curl','-X','PUT','http://{}/config'.format(ap_ip),'--header','Content-Type:', 'application/json','-d','{}'.format(json.dumps(json.loads(payload)))])
     print("response: ", response.decode())
-    # b'{"success":false,"error":"Invalid or too big JSON"}'
-    # {"success":true}
+    #b'{"success":false,"error":"Invalid or too big JSON"}'
+    #{"success":true}
     print("diassociating {}".format(iface))
-    subprocess.check_output(["sudo", "iwconfig", iface, "ap", "00:00:00:00:00:00"])
-    # give device change to reconfigure
+    subprocess.check_output(['sudo','iwconfig',iface,'ap','00:00:00:00:00:00'])
+    #give device change to reconfigure
     time.sleep(post_send_delay)
 
-
 def main():
-    parser = argparse.ArgumentParser(
-        description=main.__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = argparse.ArgumentParser(description=main.__doc__,formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("interface", help="wireless iface")
     parser.add_argument("--template", help="template json")
-    parser.add_argument(
-        "--template-vars",
-        nargs="+",
-        default=[],
-        help="template vars (key value key value)",
-    )
+    parser.add_argument("--template-vars", nargs="+", default=[], help="template vars (key value key value)")
 
     args = parser.parse_args()
     template_vars = dict(zip(args.template_vars[:-1:2], args.template_vars[1::2]))

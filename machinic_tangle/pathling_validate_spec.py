@@ -9,9 +9,7 @@ import pathlib
 from textx.metamodel import metamodel_from_file
 
 
-pathling_model_file = pathlib.Path(
-    pathlib.PurePath(pathlib.Path(__file__).parents[0], "pathling.tx")
-)
+pathling_model_file = pathlib.Path(pathlib.PurePath(pathlib.Path(__file__).parents[0], "pathling.tx"))
 pathling_metamodel = metamodel_from_file(pathling_model_file)
 passed = 0
 failed = 0
