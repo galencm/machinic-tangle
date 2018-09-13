@@ -79,3 +79,7 @@ For more descriptions of C4 and the problem/solution approach, documentation fro
 * [zeromq wiki](http://zeromq.org/docs:contributing)
 * [czmq](https://github.com/zeromq/czmq/blob/master/CONTRIBUTING.md)
 * [libzmq](https://github.com/zeromq/libzmq/blob/master/.github/PULL_REQUEST_TEMPLATE.md)
+
+The git hooks/pre-commit configuration comes from:
+
+* [Automate Python workflow using pre-commits: black and flake8](https://ljvmiranda921.github.io/notebook/2018/06/21/precommits-using-black-and-flake8/)
